@@ -31,14 +31,15 @@ public class Greendeck{
     public var accessTokenString: String = ""
     public var accessTokenJSON: Dictionary<String, Any> = [:]
     public var customer: GreendeckPerson? = nil
+    let userDefaults = UserDefaults.standard
     var clientId: String = ""
     var clientSecret: String = ""
     
-    var AuthEndPoint = "http://staging.greendeck.co/api/v1/oauth/token.json"
-    var TransactionEndPoint = "http://staging.greendeck.co/api/v1/transactions"
-    var CustomerApiEndPoint = "http://staging.greendeck.co/api/v1/people"
-    var EventApiEndPoint = "http://staging.greendeck.co/api/v1/events"
-    var FetchApiEndPoint = "http://staging.greendeck.co/api/v1/fetch"
+    var AuthEndPoint = "http://api.greendeck.co/api/v1/oauth/token.json"
+    var TransactionEndPoint = "http://api.greendeck.co/api/v1/transactions"
+    var CustomerApiEndPoint = "http://api.greendeck.co/api/v1/people"
+    var EventApiEndPoint = "http://api.greendeck.co/api/v1/events"
+    var FetchApiEndPoint = "http://api.greendeck.co/api/v1/fetch"
     
     public func initialize(clientId: String, clientSecret: String) ->Greendeck {
         self.clientId = clientId
@@ -69,18 +70,21 @@ public class Greendeck{
         self.clientId = clientId
         self.clientSecret = clientSecret
         
-        if accessTokenJSON.isEmpty {
+        let accessTokenJSONLocal = userDefaults.dictionary(forKey: "access_token_dict")
+        
+        if (accessTokenJSONLocal?.isEmpty)! {
             getAccessToken(id: self.clientId, secret: self.clientSecret, url: self.AuthEndPoint)
         }
         else{
-            if isTokenExpired (accessTokenJSONObject: self.accessTokenJSON) {
+            if isTokenExpired (accessTokenJSONObject: accessTokenJSONLocal!) {
                 getAccessToken(id: self.clientId, secret: self.clientSecret, url: self.AuthEndPoint)
             } else {
                 
                 print("TOKEN received")
                 
-                self.accessTokenString =  self.accessTokenJSON["access_token"] as! String
-                
+                self.accessTokenString =  accessTokenJSONLocal?["access_token"] as! String
+                self.accessTokenJSON = accessTokenJSONLocal!
+                userDefaults.set(self.accessTokenJSON, forKey: "access_token_dict")
                 print("TOKEN:  \(self.accessTokenString)")
             }
         }
@@ -132,6 +136,7 @@ public class Greendeck{
             }
             else{
                 self.accessTokenString =   JSONResponse["access_token"] as! String
+                self.userDefaults.set(JSONResponse, forKey: "access_token_dict")
                 print("\(self.accessTokenString )")
             }
             
@@ -142,14 +147,26 @@ public class Greendeck{
     }
     
     public func identify(){
-        if customer == nil{
+        
+        let personCodeLocal = userDefaults.string(forKey: "person_code")
+        
+        
+        
+        if (personCodeLocal?.isEmpty)!{
             let guestIdentifier = String(Int(arc4random_uniform(100000000) + 1))
-            identify(identifier: guestIdentifier)
+            var guestIdentifierToSend = "greendeck_guest_\(guestIdentifier)"
+            identify(identifier: guestIdentifierToSend)
         }
     }
     
     public func identify(identifier: String){
         identify(identifier: identifier, properties: nil)
+        
+         let personCodeLocal = userDefaults.string(forKey: "person_code")
+        
+        
+        
+        
     }
     
     public func identify(identifier: String, properties: Dictionary<String, Any>?){
@@ -229,6 +246,28 @@ public class Greendeck{
         }
         
         
+    }
+    
+    public func changeAlias(oldPersonCode: String, newPersonCode: String){
+    
+        let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
+        var url = self.CustomerApiEndPoint
+        url += "/alias?person_code=\(oldPersonCode)"
+        
+        var personToSend: Dictionary<String, Any> = [:]
+        personToSend = ["person": ["new_person_code": newPersonCode]]
+        
+        AFWrapper.requestPUTURL(url, postHeaders: defaultHeaders, postDict: personToSend, success: {
+            (JSONResponse) -> Void in
+            
+            print("changeAlias: \(personToSend)")
+            
+        }) {
+            (error) -> Void in
+            print(error)
+            print("Error: changeAlias: \(personToSend)")
+        }
+
     }
     
     public func trackWithoutCustomer(eventName: String){
@@ -347,7 +386,6 @@ public class Greendeck{
                 print(error)
                 print("Error: Transaction: \(transactionCode)")
             }
-
             
         }
         else{
