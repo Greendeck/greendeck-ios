@@ -160,11 +160,22 @@ public class Greendeck{
     }
     
     public func identify(identifier: String){
-        identify(identifier: identifier, properties: nil)
         
-         let personCodeLocal = userDefaults.string(forKey: "person_code")
+        let personCodeLocal = userDefaults.string(forKey: "person_code")
         
+        if (personCodeLocal?.isEmpty)!{
+            
+            identify(identifier: identifier, properties: nil)
+        }
+        else{
         
+            if (personCodeLocal?.contains("greendeck"))! {
+                changeAlias(oldPersonCode: personCodeLocal!, newPersonCode: identifier)
+            }
+            else{
+                identify(identifier: identifier, properties: nil)
+            }
+        }
         
         
     }
@@ -173,34 +184,80 @@ public class Greendeck{
         let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
         let url = "\(self.CustomerApiEndPoint)/?person_code=\(identifier)"
         
-        AFWrapper.requestGETURL(url, getHeaders: defaultHeaders, success: {
-            (JSONResponse) -> Void in
+        let personCodeLocal = userDefaults.string(forKey: "person_code")
+        
+        if (personCodeLocal?.isEmpty)!{
             
-            
-            let person = JSONResponse["person"] as! Dictionary<String, Any>
-            
-            if !person.isEmpty {
+            AFWrapper.requestGETURL(url, getHeaders: defaultHeaders, success: {
+                (JSONResponse) -> Void in
                 
-                let personCode = person["person_code"] as! String
                 
-                self.customer = GreendeckPerson(personCode: personCode)
-    
-                print("CUSTOMER with identifier: \(identifier) found")
+                let person = JSONResponse["person"] as! Dictionary<String, Any>
+                
+                if !person.isEmpty {
+                    
+                    let personCode = person["person_code"] as! String
+                    
+                    self.customer = GreendeckPerson(personCode: personCode)
+                    
+                    self.userDefaults.set(personCode, forKey: "person_code")
+                    
+                    print("CUSTOMER with identifier: \(identifier) found")
+                }
+                else{
+                    //customer with this identifier not present
+                    print("CUSTOMER with identifier: \(identifier) not found. Creating customer now.")
+                    if properties != nil {
+                        self.createCustomer(identifier: identifier, properties: properties)
+                    }
+                    else {
+                        self.createCustomer(identifier: identifier)
+                    }
+                }
+                
+            }) {
+                (error) -> Void in
+                print(error)
+            }
+        }
+        else{
+            
+            if (personCodeLocal?.contains("greendeck"))! {
+                changeAlias(oldPersonCode: personCodeLocal!, newPersonCode: identifier)
             }
             else{
-                //customer with this identifier not present
-                print("CUSTOMER with identifier: \(identifier) not found. Creating customer now.")
-                if properties != nil {
-                    self.createCustomer(identifier: identifier, properties: properties)
-                }
-                else {
-                    self.createCustomer(identifier: identifier)
+                AFWrapper.requestGETURL(url, getHeaders: defaultHeaders, success: {
+                    (JSONResponse) -> Void in
+                    
+                    
+                    let person = JSONResponse["person"] as! Dictionary<String, Any>
+                    
+                    if !person.isEmpty {
+                        
+                        let personCode = person["person_code"] as! String
+                        
+                        self.customer = GreendeckPerson(personCode: personCode)
+                        
+                        self.userDefaults.set(personCode, forKey: "person_code")
+                        
+                        print("CUSTOMER with identifier: \(identifier) found")
+                    }
+                    else{
+                        //customer with this identifier not present
+                        print("CUSTOMER with identifier: \(identifier) not found. Creating customer now.")
+                        if properties != nil {
+                            self.createCustomer(identifier: identifier, properties: properties)
+                        }
+                        else {
+                            self.createCustomer(identifier: identifier)
+                        }
+                    }
+                    
+                }) {
+                    (error) -> Void in
+                    print(error)
                 }
             }
-            
-        }) {
-            (error) -> Void in
-            print(error)
         }
         
     }
@@ -232,6 +289,7 @@ public class Greendeck{
                 
                 let personCode = person["person_code"] as! String
                 self.customer = GreendeckPerson(personCode: personCode)
+                self.userDefaults.set(personCode, forKey: "person_code")
                 
                 print("CUSTOMER with identifier: \(identifier) created")
             }
@@ -243,6 +301,46 @@ public class Greendeck{
         }) {
             (error) -> Void in
             print(error)
+        }
+        
+        
+    }
+    
+    public func changeAlias(newPersonCode: String){
+        
+        let personCodeLocal = userDefaults.string(forKey: "person_code")
+        
+        if (personCodeLocal?.isEmpty)!{
+            
+            print("Error: changeAlias: No guest found")
+
+        }
+        else{
+            
+            if (personCodeLocal?.contains("greendeck"))! {
+                let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
+                var url = self.CustomerApiEndPoint
+                url += "/alias?person_code=\(personCodeLocal)"
+                
+                var personToSend: Dictionary<String, Any> = [:]
+                personToSend = ["person": ["new_person_code": newPersonCode]]
+                
+                AFWrapper.requestPUTURL(url, postHeaders: defaultHeaders, postDict: personToSend, success: {
+                    (JSONResponse) -> Void in
+                    
+                    print("Success: changeAlias: \(personToSend)")
+                    self.userDefaults.set(newPersonCode, forKey: "person_code")
+                    
+                }) {
+                    (error) -> Void in
+                    print(error)
+                    print("Error: changeAlias: \(personToSend)")
+                }
+
+            }
+            else{
+                print("Error: changeAlias: No guest found")
+            }
         }
         
         
@@ -260,7 +358,8 @@ public class Greendeck{
         AFWrapper.requestPUTURL(url, postHeaders: defaultHeaders, postDict: personToSend, success: {
             (JSONResponse) -> Void in
             
-            print("changeAlias: \(personToSend)")
+            print("Success: changeAlias: \(personToSend)")
+            self.userDefaults.set(newPersonCode, forKey: "person_code")
             
         }) {
             (error) -> Void in
