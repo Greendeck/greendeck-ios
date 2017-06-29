@@ -329,6 +329,7 @@ public class Greendeck{
                     (JSONResponse) -> Void in
                     
                     print("Success: changeAlias: \(personToSend)")
+                    self.customer = GreendeckPerson(personCode: newPersonCode)
                     self.userDefaults.set(newPersonCode, forKey: "person_code")
                     
                 }) {
@@ -359,6 +360,7 @@ public class Greendeck{
             (JSONResponse) -> Void in
             
             print("Success: changeAlias: \(personToSend)")
+            self.customer = GreendeckPerson(personCode: newPersonCode)
             self.userDefaults.set(newPersonCode, forKey: "person_code")
             
         }) {
