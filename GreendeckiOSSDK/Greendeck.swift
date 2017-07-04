@@ -35,11 +35,11 @@ public class Greendeck{
     var clientId: String = ""
     var clientSecret: String = ""
     
-    var AuthEndPoint = "http://api.greendeck.co/api/v1/oauth/token.json"
-    var TransactionEndPoint = "http://api.greendeck.co/api/v1/transactions"
-    var CustomerApiEndPoint = "http://api.greendeck.co/api/v1/people"
-    var EventApiEndPoint = "http://api.greendeck.co/api/v1/events"
-    var FetchApiEndPoint = "http://api.greendeck.co/api/v1/fetch"
+    var AuthEndPoint = "http://staging.greendeck.co/api/v1/oauth/token.json"
+    var TransactionEndPoint = "http://staging.greendeck.co/api/v1/transactions"
+    var CustomerApiEndPoint = "http://staging.greendeck.co/api/v1/people"
+    var EventApiEndPoint = "http://staging.greendeck.co/api/v1/events"
+    var FetchApiEndPoint = "http://staging.greendeck.co/api/v1/fetch"
     
     public func initialize(clientId: String, clientSecret: String) ->Greendeck {
         self.clientId = clientId
@@ -62,7 +62,7 @@ public class Greendeck{
     }
     
     public init(){
-    
+        
         
     }
     
@@ -70,9 +70,12 @@ public class Greendeck{
         self.clientId = clientId
         self.clientSecret = clientSecret
         
-        let accessTokenJSONLocal = userDefaults.dictionary(forKey: "access_token_dict")
+        var accessTokenJSONLocal: Dictionary<String, String>? = nil
         
-        if (accessTokenJSONLocal?.isEmpty)! {
+        
+        accessTokenJSONLocal = userDefaults.dictionary(forKey: "access_token_dict") as?Dictionary<String, String>
+        
+        if accessTokenJSONLocal == nil{
             getAccessToken(id: self.clientId, secret: self.clientSecret, url: self.AuthEndPoint)
         }
         else{
@@ -94,7 +97,7 @@ public class Greendeck{
     public func isTokenExpired(accessTokenJSONObject: Dictionary<String, Any>) -> Bool{
         do{
             
-            if !accessTokenJSONObject.isEmpty{
+            if accessTokenJSONObject != nil{
                 let expiresIn = Int64(accessTokenJSON["expires_in"] as! Double)
                 print("expires_in: \(expiresIn)")
                 let createdAt = Int64(accessTokenJSON["created_at"] as! Double)
@@ -106,10 +109,10 @@ public class Greendeck{
                 return ((createdAt + expiresIn) < currentTime)
             }
             else{
-            
+                
                 return true
             }
-        
+            
             
         }
         catch{
@@ -152,7 +155,7 @@ public class Greendeck{
         
         
         
-        if (personCodeLocal?.isEmpty)!{
+        if personCodeLocal == nil{
             let guestIdentifier = String(Int(arc4random_uniform(100000000) + 1))
             var guestIdentifierToSend = "greendeck_guest_\(guestIdentifier)"
             identify(identifier: guestIdentifierToSend)
@@ -163,12 +166,12 @@ public class Greendeck{
         
         let personCodeLocal = userDefaults.string(forKey: "person_code")
         
-        if (personCodeLocal?.isEmpty)!{
+        if personCodeLocal == nil{
             
             identify(identifier: identifier, properties: nil)
         }
         else{
-        
+            
             if (personCodeLocal?.contains("greendeck"))! {
                 changeAlias(oldPersonCode: personCodeLocal!, newPersonCode: identifier)
             }
@@ -186,33 +189,30 @@ public class Greendeck{
         
         let personCodeLocal = userDefaults.string(forKey: "person_code")
         
-        if (personCodeLocal?.isEmpty)!{
+        if personCodeLocal == nil{
             
             AFWrapper.requestGETURL(url, getHeaders: defaultHeaders, success: {
                 (JSONResponse) -> Void in
                 
+                var person = JSONResponse["person"]
                 
-                let person = JSONResponse["person"] as! Dictionary<String, Any>
-                
-                if !person.isEmpty {
+                if person is NSNull {
                     
-                    let personCode = person["person_code"] as! String
+                    //customer with this identifier not present
+                    print("CUSTOMER with identifier: \(identifier) not found. Creating customer now.")
+                    self.createCustomer(identifier: identifier, properties: properties)
+                    
+                }
+                else{
+                    
+                    var personInt: Dictionary<String, Any>? = JSONResponse["person"] as! Dictionary<String, Any>
+                    let personCode = personInt?["person_code"] as! String
                     
                     self.customer = GreendeckPerson(personCode: personCode)
                     
                     self.userDefaults.set(personCode, forKey: "person_code")
                     
                     print("CUSTOMER with identifier: \(identifier) found")
-                }
-                else{
-                    //customer with this identifier not present
-                    print("CUSTOMER with identifier: \(identifier) not found. Creating customer now.")
-                    if properties != nil {
-                        self.createCustomer(identifier: identifier, properties: properties)
-                    }
-                    else {
-                        self.createCustomer(identifier: identifier)
-                    }
                 }
                 
             }) {
@@ -230,27 +230,25 @@ public class Greendeck{
                     (JSONResponse) -> Void in
                     
                     
-                    let person = JSONResponse["person"] as! Dictionary<String, Any>
+                    var person = JSONResponse["person"]
                     
-                    if !person.isEmpty {
+                    if person is NSNull {
                         
-                        let personCode = person["person_code"] as! String
+                        //customer with this identifier not present
+                        print("CUSTOMER with identifier: \(identifier) not found. Creating customer now.")
+                        self.createCustomer(identifier: identifier, properties: properties)
+                        
+                    }
+                    else{
+                        
+                        var personInt: Dictionary<String, Any>? = JSONResponse["person"] as! Dictionary<String, Any>
+                        let personCode = personInt?["person_code"] as! String
                         
                         self.customer = GreendeckPerson(personCode: personCode)
                         
                         self.userDefaults.set(personCode, forKey: "person_code")
                         
                         print("CUSTOMER with identifier: \(identifier) found")
-                    }
-                    else{
-                        //customer with this identifier not present
-                        print("CUSTOMER with identifier: \(identifier) not found. Creating customer now.")
-                        if properties != nil {
-                            self.createCustomer(identifier: identifier, properties: properties)
-                        }
-                        else {
-                            self.createCustomer(identifier: identifier)
-                        }
                     }
                     
                 }) {
@@ -283,19 +281,21 @@ public class Greendeck{
         AFWrapper.requestPOSTURL(url,  postHeaders: defaultHeaders, postDict: customerToSend, success: {
             (JSONResponse) -> Void in
             
-            let person = JSONResponse["person"] as! Dictionary<String, Any>
+            var person = JSONResponse["person"]
             
-            if !person.isEmpty {
+            if person is NSNull {
+                //customer with this identifier not present
+                print("CUSTOMER with identifier: \(identifier) not created.")
+            }
+            else{
                 
-                let personCode = person["person_code"] as! String
+                var personInt: Dictionary<String, Any>? = JSONResponse["person"] as! Dictionary<String, Any>
+                let personCode = personInt?["person_code"] as! String
                 self.customer = GreendeckPerson(personCode: personCode)
                 self.userDefaults.set(personCode, forKey: "person_code")
                 
                 print("CUSTOMER with identifier: \(identifier) created")
-            }
-            else{
-                //customer with this identifier not present
-                print("CUSTOMER with identifier: \(identifier) not created.")
+                
             }
             
         }) {
@@ -310,10 +310,10 @@ public class Greendeck{
         
         let personCodeLocal = userDefaults.string(forKey: "person_code")
         
-        if (personCodeLocal?.isEmpty)!{
+        if personCodeLocal == nil{
             
             print("Error: changeAlias: No guest found")
-
+            
         }
         else{
             
@@ -337,7 +337,7 @@ public class Greendeck{
                     print(error)
                     print("Error: changeAlias: \(personToSend)")
                 }
-
+                
             }
             else{
                 print("Error: changeAlias: No guest found")
@@ -348,7 +348,7 @@ public class Greendeck{
     }
     
     public func changeAlias(oldPersonCode: String, newPersonCode: String){
-    
+        
         let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
         var url = self.CustomerApiEndPoint
         url += "/alias?person_code=\(oldPersonCode)"
@@ -368,7 +368,7 @@ public class Greendeck{
             print(error)
             print("Error: changeAlias: \(personToSend)")
         }
-
+        
     }
     
     public func trackWithoutCustomer(eventName: String){
@@ -385,7 +385,7 @@ public class Greendeck{
         let url = self.EventApiEndPoint
         
         var eventToSend: Dictionary<String, Any> = [:]
-
+        
         if properties != nil{
             eventToSend = getEventJSON(eventName: eventName, personCode: nil, productCode: productCode, properties: properties!)
         }
@@ -460,43 +460,46 @@ public class Greendeck{
             transactionInternalDict = properties!
         }
         else{
-            
+            transactionInternalDict = [:]
         }
         
         let personCode = self.customer?.personCode
         
         if personCode != nil && personCode != "" {
             
-            transactionInternalDict?["transactionCode"] = transactionCode
+            transactionInternalDict?["transaction_code"] = transactionCode
             transactionInternalDict?["price"] = price
             transactionInternalDict?["quantity"] = quantity
             transactionInternalDict?["person_code"] = personCode
             
             if productCode != nil && productCode != ""{
                 transactionInternalDict?["product_code"] = productCode
+                
+                transactionDict = ["transaction": transactionInternalDict!]
+                
+                transactionToSend = transactionDict!
+                
+                AFWrapper.requestPOSTURL(url, postHeaders: defaultHeaders, postDict: transactionToSend, success: {
+                    (JSONResponse) -> Void in
+                    
+                    print("Transaction: \(transactionCode)")
+                    
+                }) {
+                    (error) -> Void in
+                    print(error)
+                    print("Error: Transaction: \(transactionCode)")
+                }
+                
             }
             else{
-                transactionInternalDict?["product_code"] = productCode
+                //transactionInternalDict?["product_code"] = productCode
+                print("Error: Transaction: No product code found")
             }
             
-            transactionDict = ["transaction": transactionInternalDict!]
-            
-            transactionToSend = transactionDict!
-            
-            AFWrapper.requestPOSTURL(url, postHeaders: defaultHeaders, postDict: transactionToSend, success: {
-                (JSONResponse) -> Void in
-                
-                print("Transaction: \(transactionCode)")
-                
-            }) {
-                (error) -> Void in
-                print(error)
-                print("Error: Transaction: \(transactionCode)")
-            }
             
         }
         else{
-        
+            
             print("Error: Transaction: No customer found")
         }
         
@@ -544,14 +547,16 @@ public class Greendeck{
     }
     
     public func setUserProperties(propertyName: String, propertyValue: Any){
-    
+        
         let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
-        var url = self.FetchApiEndPoint
+        var url = self.CustomerApiEndPoint
         var personCode = self.customer?.personCode
         
-        var internalDict: Dictionary<String, Any> = [propertyName: propertyValue]
+        var internalDict = [propertyName: propertyValue]
         
-        var postDict = setCustomerJSONObject(properties: internalDict)
+        var postDict: Dictionary<String, Any> = [:]
+        
+        postDict = setCustomerJSONObject(properties: internalDict)
         
         if personCode != nil && personCode != ""{
             
@@ -563,7 +568,7 @@ public class Greendeck{
             
             AFWrapper.requestPUTURL(url, postHeaders: defaultHeaders, postDict: postDict, success: {
                 (JSONResponse) -> Void in
-
+                
                 print("SetUserProperties: \(AFWrapper.dictToJSONString(dictionary: JSONResponse))")
                 
             }) {
@@ -581,7 +586,7 @@ public class Greendeck{
     public func incrementUserProperties(propertyName: String, incrementBy: Float){
         
         let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
-        var url = self.FetchApiEndPoint
+        var url = self.CustomerApiEndPoint
         var personCode = self.customer?.personCode
         
         var internalDict: Dictionary<String, Any> = [propertyName: incrementBy]
@@ -599,16 +604,16 @@ public class Greendeck{
             AFWrapper.requestPUTURL(url, postHeaders: defaultHeaders, postDict: postDict, success: {
                 (JSONResponse) -> Void in
                 
-                print("SetUserProperties: \(AFWrapper.dictToJSONString(dictionary: JSONResponse))")
+                print("IncUserProperties: \(AFWrapper.dictToJSONString(dictionary: JSONResponse))")
                 
             }) {
                 (error) -> Void in
                 print(error)
-                print("Error: SetUserProperties")
+                print("Error: IncUserProperties")
             }
         }
         else{
-            print("Error: SetUserProperties: No customer found")
+            print("Error: IncUserProperties: No customer found")
         }
         
     }
@@ -635,7 +640,7 @@ public class Greendeck{
     
     
     private func methodJSONFromMap(method: String, properties: Dictionary<String, Any>) ->Dictionary<String, Any>{
-    
+        
         var methodInternalDict: Dictionary<String, Any> = [:]
         
         methodInternalDict[method] = properties
@@ -645,7 +650,7 @@ public class Greendeck{
     }
     
     public func getCustomerJSON(identifier: String) ->Dictionary<String, Any>{
-    
+        
         let customerDict = ["person": ["person_code": identifier]]
         return customerDict
         
@@ -662,7 +667,7 @@ public class Greendeck{
         else{
             custInternalDict = ["person_code": identifier] as [String : Any]
         }
-       
+        
         let customerDict = ["person": custInternalDict]
         return customerDict
     }
@@ -681,7 +686,7 @@ public class Greendeck{
     }
     
     public func getEventJSON(eventName: String, personCode: String!, productCode: String!, properties: Dictionary<String, Any>?) ->Dictionary<String, Any>{
-      
+        
         
         var eventInternalDict: Dictionary<String, Any> = [:]
         if properties != nil {
@@ -697,7 +702,7 @@ public class Greendeck{
         if productCode != nil {
             eventInternalDict["product_code"] = productCode
         }
-    
+        
         let eventDict = ["event": eventInternalDict]
         return eventDict
     }
