@@ -379,7 +379,7 @@ public class Greendeck{
         trackWithoutCustomer(eventName: eventName, productCode: nil, properties: properties)
     }
     
-    public func trackWithoutCustomer(eventName: String, productCode: String?, properties: Dictionary<String, Any>?){
+    private func trackWithoutCustomer(eventName: String, productCode: String?, properties: Dictionary<String, Any>?){
         
         let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
         let url = self.EventApiEndPoint
@@ -414,7 +414,7 @@ public class Greendeck{
         track(eventName: eventName, productCode: nil, properties: properties)
     }
     
-    public func track(eventName: String, productCode: String?, properties: Dictionary<String, Any>?){
+    private func track(eventName: String, productCode: String?, properties: Dictionary<String, Any>?){
         
         let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
         let url = self.EventApiEndPoint
@@ -456,6 +456,13 @@ public class Greendeck{
         var transactionDict: Dictionary<String, Any>? = nil
         var transactionInternalDict: Dictionary<String, Any>? = nil
         
+        if properties != nil {
+            transactionInternalDict = properties!
+        }
+        else{
+            
+        }
+        
         let personCode = self.customer?.personCode
         
         if personCode != nil && personCode != "" {
@@ -463,7 +470,6 @@ public class Greendeck{
             transactionInternalDict?["transactionCode"] = transactionCode
             transactionInternalDict?["price"] = price
             transactionInternalDict?["quantity"] = quantity
-            transactionInternalDict?["properties"] = properties
             transactionInternalDict?["person_code"] = personCode
             
             if productCode != nil && productCode != ""{
@@ -507,7 +513,7 @@ public class Greendeck{
                 personCode = personCode?.replacingOccurrences(of: ".", with: "%2E").replacingOccurrences(of: "@", with: "%40")
                 let newProductCode = productCode?.replacingOccurrences(of: ".", with: "%2E").replacingOccurrences(of: "@", with: "%40")
                 
-                url += "/\(personCode ?? "")/product/\(newProductCode ?? "")"
+                url += "?person_code=\(personCode ?? "")&product_code=\(newProductCode ?? "")"
                 
                 print(url)
                 
@@ -537,6 +543,107 @@ public class Greendeck{
         
     }
     
+    public func setUserProperties(propertyName: String, propertyValue: Any){
+    
+        let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
+        var url = self.FetchApiEndPoint
+        var personCode = self.customer?.personCode
+        
+        var internalDict: Dictionary<String, Any> = [propertyName: propertyValue]
+        
+        var postDict = setCustomerJSONObject(properties: internalDict)
+        
+        if personCode != nil && personCode != ""{
+            
+            personCode = personCode?.replacingOccurrences(of: ".", with: "%2E").replacingOccurrences(of: "@", with: "%40")
+            
+            url += "?person_code=\(personCode ?? "")"
+            
+            print(url)
+            
+            AFWrapper.requestPUTURL(url, postHeaders: defaultHeaders, postDict: postDict, success: {
+                (JSONResponse) -> Void in
+
+                print("SetUserProperties: \(AFWrapper.dictToJSONString(dictionary: JSONResponse))")
+                
+            }) {
+                (error) -> Void in
+                print(error)
+                print("Error: SetUserProperties")
+            }
+        }
+        else{
+            print("Error: SetUserProperties: No customer found")
+        }
+        
+    }
+    
+    public func incrementUserProperties(propertyName: String, incrementBy: Float){
+        
+        let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
+        var url = self.FetchApiEndPoint
+        var personCode = self.customer?.personCode
+        
+        var internalDict: Dictionary<String, Any> = [propertyName: incrementBy]
+        
+        var postDict = incCustomerJSONObject(properties: internalDict)
+        
+        if personCode != nil && personCode != ""{
+            
+            personCode = personCode?.replacingOccurrences(of: ".", with: "%2E").replacingOccurrences(of: "@", with: "%40")
+            
+            url += "?person_code=\(personCode ?? "")"
+            
+            print(url)
+            
+            AFWrapper.requestPUTURL(url, postHeaders: defaultHeaders, postDict: postDict, success: {
+                (JSONResponse) -> Void in
+                
+                print("SetUserProperties: \(AFWrapper.dictToJSONString(dictionary: JSONResponse))")
+                
+            }) {
+                (error) -> Void in
+                print(error)
+                print("Error: SetUserProperties")
+            }
+        }
+        else{
+            print("Error: SetUserProperties: No customer found")
+        }
+        
+    }
+    
+    private func setCustomerJSONObject(properties: Dictionary<String, Any>) ->Dictionary<String, Any>{
+        
+        var custInternalDict: Dictionary<String, Any> = [:]
+        
+        custInternalDict["person"] = methodJSONFromMap(method: "$set", properties: properties)
+        
+        return custInternalDict
+        
+    }
+    
+    private func incCustomerJSONObject(properties: Dictionary<String, Any>) ->Dictionary<String, Any>{
+        
+        var custInternalDict: Dictionary<String, Any> = [:]
+        
+        custInternalDict["person"] = methodJSONFromMap(method: "$inc", properties: properties)
+        
+        return custInternalDict
+        
+    }
+    
+    
+    private func methodJSONFromMap(method: String, properties: Dictionary<String, Any>) ->Dictionary<String, Any>{
+    
+        var methodInternalDict: Dictionary<String, Any> = [:]
+        
+        methodInternalDict[method] = properties
+        
+        return methodInternalDict
+        
+    }
+    
     public func getCustomerJSON(identifier: String) ->Dictionary<String, Any>{
     
         let customerDict = ["person": ["person_code": identifier]]
@@ -546,9 +653,14 @@ public class Greendeck{
     
     public func getCustomerJSON(identifier: String, properties: Dictionary<String, Any>?) ->Dictionary<String, Any>{
         
-        var custInternalDict = ["person_code": identifier] as [String : Any]
+        var custInternalDict: Dictionary<String, Any> = [:]
+        
         if properties != nil {
-            custInternalDict["properties"] = properties
+            custInternalDict = properties!
+            custInternalDict["person_code"]  = identifier
+        }
+        else{
+            custInternalDict = ["person_code": identifier] as [String : Any]
         }
        
         let customerDict = ["person": custInternalDict]
@@ -569,12 +681,15 @@ public class Greendeck{
     }
     
     public func getEventJSON(eventName: String, personCode: String!, productCode: String!, properties: Dictionary<String, Any>?) ->Dictionary<String, Any>{
+      
         
-        
-        
-        var eventInternalDict = ["event_name": eventName] as [String : Any]
+        var eventInternalDict: Dictionary<String, Any> = [:]
         if properties != nil {
-            eventInternalDict["properties"] = properties
+            eventInternalDict = properties!
+            eventInternalDict["event_name"]  = eventName
+        }
+        else{
+            eventInternalDict = ["event_name": eventName] as [String : Any]
         }
         if personCode != nil {
             eventInternalDict["person_code"] = personCode
@@ -582,6 +697,7 @@ public class Greendeck{
         if productCode != nil {
             eventInternalDict["product_code"] = productCode
         }
+    
         let eventDict = ["event": eventInternalDict]
         return eventDict
     }
