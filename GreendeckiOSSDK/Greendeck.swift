@@ -35,11 +35,11 @@ public class Greendeck{
     var clientId: String = ""
     var clientSecret: String = ""
     
-    var AuthEndPoint = "http://staging.greendeck.co/api/v1/oauth/token.json"
-    var TransactionEndPoint = "http://staging.greendeck.co/api/v1/transactions"
-    var CustomerApiEndPoint = "http://staging.greendeck.co/api/v1/people"
-    var EventApiEndPoint = "http://staging.greendeck.co/api/v1/events"
-    var FetchApiEndPoint = "http://staging.greendeck.co/api/v1/fetch"
+    var AuthEndPoint = "http://api.greendeck.co/api/v1/oauth/token.json"
+    var TransactionEndPoint = "http://api.greendeck.co/api/v1/transactions"
+    var CustomerApiEndPoint = "http://api.greendeck.co/api/v1/people"
+    var EventApiEndPoint = "http://api.greendeck.co/api/v1/events"
+    var FetchApiEndPoint = "http://api.greendeck.co/api/v1/fetch"
     
     public func initialize(clientId: String, clientSecret: String) ->Greendeck {
         self.clientId = clientId
