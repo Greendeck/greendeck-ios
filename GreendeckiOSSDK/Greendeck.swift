@@ -443,11 +443,11 @@ public class Greendeck{
         
     }
     
-    public func transact(transactionCode: String, quantity: Float, price: Float, productCode: String){
-        transact(transactionCode: transactionCode, quantity: quantity, price: price, productCode: productCode, properties: nil)
+    public func transact(quantity: Float, price: Float, productCode: String){
+        transact(quantity: quantity, price: price, productCode: productCode, properties: nil)
     }
     
-    public func transact(transactionCode: String, quantity: Float, price: Float, productCode: String?, properties: Dictionary<String, Any>?){
+    public func transact(quantity: Float, price: Float, productCode: String?, properties: Dictionary<String, Any>?){
         
         let defaultHeaders = ["Content-Type": "application/json", "Authorization": "Bearer \(self.accessTokenString)"]
         let url = self.TransactionEndPoint
@@ -467,7 +467,7 @@ public class Greendeck{
         
         if personCode != nil && personCode != "" {
             
-            transactionInternalDict?["transaction_code"] = transactionCode
+            
             transactionInternalDict?["price"] = price
             transactionInternalDict?["quantity"] = quantity
             transactionInternalDict?["person_code"] = personCode
@@ -482,12 +482,12 @@ public class Greendeck{
                 AFWrapper.requestPOSTURL(url, postHeaders: defaultHeaders, postDict: transactionToSend, success: {
                     (JSONResponse) -> Void in
                     
-                    print("Transaction: \(transactionCode)")
+                    print("Transaction for : \(productCode)")
                     
                 }) {
                     (error) -> Void in
                     print(error)
-                    print("Error: Transaction: \(transactionCode)")
+                    print("Error: Transaction for : \(productCode)")
                 }
                 
             }
